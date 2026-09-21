@@ -1,0 +1,1230 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#F0C900">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Sklad">
+<style>
+  html{ color-scheme: light dark; }
+  html,body{ min-height:100%; }
+  body{ margin:0; font-size:14px; }
+  img{ max-width:100%; }
+  [hidden]{ display:none !important; }
+</style>
+<title>Sklad Letostav</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800&family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+  :root{
+    --bg:#F7F4EC; --surface:#FFFFFF; --surface-2:#FBF8F0; --text:#211F20; --text-muted:#77726C;
+    --border:#E9E3D2; --accent:#F0C900; --accent-ink:#201F23; --accent-soft:#FBF0BE; --accent-text:#8A6600;
+    --ok-bg:#E3EEE0; --ok-ink:#2F6B34; --warn-bg:#FBEEDA; --warn-ink:#93600F; --crit-bg:#FBE3DF; --crit-ink:#A23324;
+    --shadow: 0 1px 2px rgba(34,29,21,.06), 0 4px 16px rgba(34,29,21,.06);
+    --nav-h: 64px;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#19181A; --surface:#232225; --surface-2:#2A292C; --text:#F2EFE7; --text-muted:#AEA89C;
+      --border:#38373A; --accent:#E3BE00; --accent-ink:#1A1912; --accent-soft:#3D3A1C; --accent-text:#E3BE00;
+      --ok-bg:#213A26; --ok-ink:#8FD79A; --warn-bg:#3D2E0F; --warn-ink:#E3B45C; --crit-bg:#3E201B; --crit-ink:#F0897A;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 6px 20px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#19181A; --surface:#232225; --surface-2:#2A292C; --text:#F2EFE7; --text-muted:#AEA89C;
+    --border:#38373A; --accent:#E3BE00; --accent-ink:#1A1912; --accent-soft:#3D3A1C; --accent-text:#E3BE00;
+    --ok-bg:#213A26; --ok-ink:#8FD79A; --warn-bg:#3D2E0F; --warn-ink:#E3B45C; --crit-bg:#3E201B; --crit-ink:#F0897A;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 6px 20px rgba(0,0,0,.35);
+  }
+
+  *{box-sizing:border-box;}
+  body{ background:var(--bg); color:var(--text); font-family:"Public Sans",system-ui,sans-serif; }
+  h1,h2,h3,.display{ font-family:"Archivo",system-ui,sans-serif; font-weight:800; letter-spacing:-.01em; text-wrap:balance; }
+  .mono{ font-family:"IBM Plex Mono",monospace; font-variant-numeric:tabular-nums; }
+  button{ font-family:inherit; }
+  input,select,textarea{ font-family:inherit; font-size:16px; }
+  a{ color:inherit; }
+
+  #app{ max-width:640px; margin:0 auto; min-height:100%; display:flex; flex-direction:column; }
+
+  /* ---------- Gate screens (PIN / person) ---------- */
+  .gate{ min-height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:32px 20px; gap:22px; text-align:center; }
+  .gate-logo{ width:200px; max-width:70vw; height:auto; border-radius:12px; box-shadow:var(--shadow); }
+  .gate h1{ font-size:22px; margin:0; }
+  .gate p{ color:var(--text-muted); margin:0; max-width:320px; font-size:14px; line-height:1.5; }
+  .pin-dots{ display:flex; gap:12px; }
+  .pin-dot{ width:14px; height:14px; border-radius:50%; border:2px solid var(--border); background:transparent; transition:background .1s, border-color .1s; }
+  .pin-dot.filled{ background:var(--accent); border-color:var(--accent); }
+  .keypad{ display:grid; grid-template-columns:repeat(3,64px); gap:12px; }
+  .key{ width:64px; height:64px; border-radius:50%; border:1px solid var(--border); background:var(--surface); color:var(--text); font-size:20px; font-weight:600; display:flex; align-items:center; justify-content:center; }
+  .key:active{ background:var(--surface-2); }
+  .key.ghost{ border-color:transparent; background:transparent; color:var(--text-muted); font-size:14px; }
+  .gate-error{ color:var(--crit-ink); font-size:13px; min-height:18px; }
+  .person-list{ display:flex; flex-direction:column; gap:8px; width:100%; max-width:320px; }
+  .person-btn{ padding:14px 16px; border-radius:12px; border:1px solid var(--border); background:var(--surface); color:var(--text); font-size:15px; font-weight:600; text-align:left; display:flex; align-items:center; gap:10px; }
+  .person-avatar{ width:30px; height:30px; border-radius:50%; background:var(--accent-soft); color:var(--accent-text); display:flex; align-items:center; justify-content:center; font-weight:700; font-size:13px; flex:none; }
+  .newperson-row{ display:flex; gap:8px; width:100%; max-width:320px; }
+  .newperson-row input{ flex:1; }
+
+  /* ---------- shell ---------- */
+  #topbar{ position:sticky; top:env(safe-area-inset-top,0px); z-index:20; background:var(--bg); border-bottom:1px solid var(--border); padding:12px 16px; display:flex; align-items:center; gap:10px; }
+  .brand{ display:flex; align-items:center; gap:9px; flex:1; min-width:0; }
+  .brand-logo{ height:26px; width:auto; border-radius:6px; flex:none; box-shadow:0 1px 3px rgba(0,0,0,.18); }
+  .brand-name{ font-family:"Archivo",sans-serif; font-weight:800; font-size:15px; line-height:1.1; }
+  .brand-sub{ font-size:11px; color:var(--text-muted); }
+  #personChip{ display:flex; align-items:center; gap:6px; border:1px solid var(--border); background:var(--surface); border-radius:99px; padding:5px 10px 5px 6px; font-size:12.5px; font-weight:600; flex:none; }
+  #gearBtn.admin{ background:var(--accent); border-color:var(--accent); color:var(--accent-ink); }
+  #personChip .person-avatar{ width:20px; height:20px; font-size:10px; }
+  #gearBtn{ width:34px; height:34px; border-radius:9px; border:1px solid var(--border); background:var(--surface); flex:none; display:flex; align-items:center; justify-content:center; font-size:15px; }
+
+  #banner{ margin:10px 16px 0; background:var(--warn-bg); color:var(--warn-ink); border-radius:12px; padding:10px 12px; font-size:12.5px; line-height:1.5; display:flex; gap:8px; align-items:flex-start; }
+  #banner button{ background:none; border:none; color:inherit; font-weight:700; font-size:13px; flex:none; margin-left:auto; padding:0 0 0 6px; }
+
+  #viewport{ flex:1; padding:14px 16px calc(var(--nav-h) + 28px); display:flex; flex-direction:column; gap:16px; }
+
+  #bottomnav{ position:fixed; left:0; right:0; bottom:0; z-index:20; background:var(--surface); border-top:1px solid var(--border); display:flex; padding-bottom:env(safe-area-inset-bottom,0px); }
+  .navwrap{ max-width:640px; margin:0 auto; display:flex; width:100%; }
+  .navbtn{ flex:1; display:flex; flex-direction:column; align-items:center; gap:3px; padding:9px 4px 8px; background:none; border:none; color:var(--text-muted); font-size:10.5px; font-weight:600; }
+  .navbtn .ic{ font-size:19px; }
+  .navbtn.active{ color:var(--accent-text); }
+
+  /* ---------- generic ui ---------- */
+  .section-head{ display:flex; align-items:baseline; justify-content:space-between; gap:8px; }
+  .section-head h2{ font-size:16px; margin:0; }
+  .section-head .count{ font-size:12px; color:var(--text-muted); }
+  .card{ background:var(--surface); border:1px solid var(--border); border-radius:14px; box-shadow:var(--shadow); }
+  .pad{ padding:14px; }
+  .stat-row{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .stat{ background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:12px 14px; display:flex; flex-direction:column; gap:2px; }
+  .stat .num{ font-family:"IBM Plex Mono",monospace; font-size:22px; font-weight:600; }
+  .stat .lbl{ font-size:11.5px; color:var(--text-muted); font-weight:600; }
+  .stat.warn .num{ color:var(--warn-ink); } .stat.crit .num{ color:var(--crit-ink); }
+
+  .list{ display:flex; flex-direction:column; gap:8px; }
+  .row-item{ width:100%; text-align:left; background:var(--surface); border:1px solid var(--border); border-radius:13px; padding:11px 12px; display:flex; align-items:center; gap:10px; }
+  .row-item .ricon{ width:36px; height:36px; border-radius:10px; background:var(--surface-2); display:flex; align-items:center; justify-content:center; font-size:16px; flex:none; }
+  .row-main{ flex:1; min-width:0; }
+  .row-title{ font-weight:700; font-size:14.5px; line-height:1.3; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; overflow-wrap:anywhere; }
+  .row-sub{ font-size:12px; color:var(--text-muted); margin-top:1px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .row-end{ text-align:right; flex:none; }
+  .row-qty{ font-family:"IBM Plex Mono",monospace; font-weight:600; font-size:14.5px; }
+  .pips{ display:flex; gap:3px; justify-content:flex-end; margin-bottom:2px; }
+  .pip{ width:9px; height:14px; border-radius:3px; background:var(--ok-ink); }
+  .pip.out{ background:transparent; border:2px solid var(--text-muted); opacity:.55; }
+  .pip.over{ border-color:var(--warn-ink); opacity:1; }
+  .piece{ display:flex; align-items:center; gap:10px; padding:11px 0; border-bottom:1px solid var(--border); }
+  .piece:last-child{ border-bottom:none; }
+  .piece-main{ flex:1; min-width:0; }
+  .piece-label{ font-weight:700; font-size:14px; }
+  .piece-status{ font-size:12px; color:var(--text-muted); margin-top:2px; }
+  .badge{ display:inline-flex; align-items:center; gap:4px; font-size:10.5px; font-weight:700; padding:3px 8px; border-radius:99px; margin-top:3px; }
+  .badge.ok{ background:var(--ok-bg); color:var(--ok-ink); }
+  .badge.warn{ background:var(--warn-bg); color:var(--warn-ink); }
+  .badge.crit{ background:var(--crit-bg); color:var(--crit-ink); }
+  .badge.neutral{ background:var(--surface-2); color:var(--text-muted); }
+
+  .search{ display:flex; align-items:center; gap:8px; background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:9px 12px; }
+  .search input{ border:none; background:none; outline:none; color:var(--text); flex:1; font-size:14.5px; }
+  .search .ic{ color:var(--text-muted); font-size:14px; }
+
+  .chip-row{ display:flex; gap:7px; overflow-x:auto; padding-bottom:2px; }
+  .chip{ flex:none; border:1px solid var(--border); background:var(--surface); color:var(--text-muted); border-radius:99px; padding:6px 13px; font-size:12.5px; font-weight:600; }
+  .chip.active{ background:var(--accent); border-color:var(--accent); color:var(--accent-ink); }
+
+  .fab-row{ display:flex; }
+  .btn{ display:inline-flex; align-items:center; justify-content:center; gap:6px; border-radius:11px; padding:11px 16px; font-size:14px; font-weight:700; border:1px solid transparent; }
+  .btn-primary{ background:var(--accent); color:var(--accent-ink); }
+  .btn-outline{ background:var(--surface); border-color:var(--border); color:var(--text); }
+  .btn-block{ width:100%; }
+  .btn-sm{ padding:8px 12px; font-size:12.5px; border-radius:9px; }
+  .btn-ghost{ background:none; border:none; color:var(--accent-text); font-weight:700; font-size:13px; padding:4px 2px; }
+  .btn-danger{ background:var(--crit-bg); color:var(--crit-ink); }
+
+  .empty{ text-align:center; padding:30px 10px; color:var(--text-muted); font-size:13px; }
+  .hist-entry{ display:flex; gap:10px; padding:10px 0; border-bottom:1px solid var(--border); }
+  .hist-entry:last-child{ border-bottom:none; }
+  .hist-dot{ width:8px; height:8px; border-radius:50%; margin-top:6px; flex:none; }
+  .hist-body{ flex:1; min-width:0; }
+  .hist-title{ font-size:13.5px; font-weight:600; }
+  .hist-meta{ font-size:11.5px; color:var(--text-muted); margin-top:2px; }
+
+  /* ---------- modal ---------- */
+  #modalRoot{ position:fixed; inset:0; z-index:50; display:none; }
+  #modalRoot.open{ display:block; }
+  .modal-backdrop{ position:absolute; inset:0; background:rgba(20,16,10,.45); }
+  .modal-sheet{ position:absolute; left:0; right:0; bottom:0; max-width:640px; margin:0 auto; background:var(--surface); border-radius:20px 20px 0 0; padding:18px 18px calc(env(safe-area-inset-bottom,0px) + 18px); max-height:88vh; overflow-y:auto; box-shadow:0 -8px 30px rgba(0,0,0,.25); }
+  .modal-handle{ width:36px; height:4px; border-radius:2px; background:var(--border); margin:0 auto 14px; }
+  .modal-title{ font-size:17px; margin:0 0 14px; }
+  .field{ display:flex; flex-direction:column; gap:5px; margin-bottom:12px; }
+  .field label{ font-size:12px; font-weight:700; color:var(--text-muted); }
+  .field input, .field select, .field textarea{ border:1px solid var(--border); background:var(--surface-2); color:var(--text); border-radius:10px; padding:10px 12px; outline:none; }
+  .field textarea{ resize:vertical; min-height:56px; }
+  .field-row{ display:flex; gap:10px; }
+  .field-row .field{ flex:1; }
+  .modal-actions{ display:flex; gap:10px; margin-top:6px; }
+  .modal-actions .btn{ flex:1; }
+  .seg{ display:flex; border:1px solid var(--border); border-radius:11px; overflow:hidden; }
+  .seg button{ flex:1; padding:10px; background:var(--surface-2); color:var(--text-muted); font-weight:700; font-size:13px; border:none; }
+  .seg button.active{ background:var(--accent); color:var(--accent-ink); }
+  .hint{ font-size:11.5px; color:var(--text-muted); margin:-6px 0 12px; }
+
+  .navbtn.scanbtn{ flex:1.15; }
+  .scan-ic{ width:44px; height:44px; margin-top:-22px; border-radius:50%; background:var(--accent); color:var(--accent-ink); display:flex; align-items:center; justify-content:center; box-shadow:0 3px 10px rgba(0,0,0,.25); border:3px solid var(--surface); }
+  .scan-ic svg{ width:22px; height:22px; }
+  #scanner{ position:fixed; inset:0; z-index:60; background:#0E0D0F; color:#F2EFE7; display:flex; flex-direction:column; }
+  #scanner .sc-top{ display:flex; align-items:center; justify-content:space-between; padding:calc(env(safe-area-inset-top,0px) + 14px) 16px 12px; }
+  #scanner .sc-title{ font-family:"Archivo",sans-serif; font-weight:800; font-size:17px; }
+  #scanner .sc-close{ background:rgba(255,255,255,.12); color:#fff; border:none; border-radius:10px; padding:9px 14px; font-weight:700; font-size:14px; }
+  #scanner .sc-stage{ position:relative; flex:1; overflow:hidden; display:flex; align-items:center; justify-content:center; }
+  #scanner video{ position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
+  #scanner .sc-frame{ position:relative; width:64vmin; height:64vmin; max-width:300px; max-height:300px; border-radius:22px; box-shadow:0 0 0 100vmax rgba(0,0,0,.45); border:3px solid #F0C900; }
+  #scanner .sc-msg{ position:absolute; left:16px; right:16px; bottom:18px; text-align:center; font-size:14px; line-height:1.45; text-shadow:0 1px 3px rgba(0,0,0,.6); }
+  #scanner .sc-msg.err{ background:rgba(0,0,0,.6); border-radius:12px; padding:12px; text-shadow:none; }
+  #scanner .sc-bottom{ padding:14px 16px calc(env(safe-area-inset-bottom,0px) + 16px); display:flex; gap:10px; background:#0E0D0F; }
+  #scanner .sc-bottom input{ flex:1; min-width:0; border-radius:11px; border:1px solid #3A393C; background:#1C1B1E; color:#fff; padding:11px 12px; font-size:16px; }
+  #scanner[hidden], #toast[hidden]{ display:none !important; }
+  #toast{ position:fixed; left:50%; bottom:calc(var(--nav-h) + env(safe-area-inset-bottom,0px) + 16px); transform:translateX(-50%); z-index:70; background:var(--text); color:var(--bg); padding:11px 16px; border-radius:12px; font-size:13.5px; font-weight:600; width:max-content; max-width:calc(100vw - 32px); text-align:center; box-shadow:var(--shadow); }
+  ::selection{ background:var(--accent-soft); }
+</style>
+
+</head>
+<body>
+<div id="app">
+  <div id="gateHost"></div>
+  <div id="shellHost" style="display:none; flex-direction:column; flex:1;">
+    <div id="banner" style="display:none;"></div>
+    <div id="topbar"></div>
+    <div id="viewport"></div>
+    <div id="bottomnav">
+      <div class="navwrap">
+        <button class="navbtn" data-view="prehled"><span class="ic">◆</span>Přehled</button>
+        <button class="navbtn" data-view="material"><span class="ic">▦</span>Materiál</button>
+        <button class="navbtn scanbtn" id="scanNavBtn" aria-label="Skenovat QR kód"><span class="scan-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3M7 12h10"/></svg></span>Skenovat</button>
+        <button class="navbtn" data-view="naradi"><span class="ic">⚒</span>Nářadí</button>
+        <button class="navbtn" data-view="historie"><span class="ic">≡</span>Historie</button>
+      </div>
+    </div>
+  </div>
+</div>
+<div id="scanner" hidden>
+  <div class="sc-top"><div class="sc-title">Naskenuj QR kód nářadí</div><button class="sc-close" id="scClose">Zavřít</button></div>
+  <div class="sc-stage"><video id="scVideo" playsinline muted></video><div class="sc-frame"></div><div class="sc-msg" id="scMsg">Namiř kameru na QR kód na nářadí.</div></div>
+  <div class="sc-bottom"><input id="scManual" inputmode="numeric" placeholder="nebo zadej číslo z QR kódu"><button class="btn btn-primary" id="scManualBtn">Najít</button></div>
+</div>
+<div id="toast" hidden></div>
+<div id="modalRoot"><div class="modal-backdrop" onclick="closeModal()"></div><div class="modal-sheet" id="modalSheet"></div></div>
+
+<script>
+(function(){
+"use strict";
+
+var STAVBY_SEED = ["Hasička Uhřice", "MŠ Rodkovského", "Dlouhá Loučka", "KD Jásinov", "Hasička Jabloňany", "BD Čelakovského", "Pivotéka Letovice", "Tasovice", "Hala Brněnec", "Dům služeb Brněnec", "RD Tenora Letovice", "Sportovní hala Letovice", "RD Prudký Olešnice", "ZŠ Nýrov"];
+var SKLADY = [{id:"senik", name:"Seník"}];
+function skladName(id){ var s = SKLADY.find(function(x){return x.id===id;}); return s? s.name : "—"; }
+var ITEM_SEED = [{"name": "EXTRA POR 70F 160 mm", "category": "Polystyren", "spec": "černý · λ 0,031", "unit": "m²", "qty": 90.0}, {"name": "AUSTROHERM EPS 70F 160 mm", "category": "Polystyren", "spec": "bílá · λ 0,039", "unit": "m²", "qty": 90.0}, {"name": "AUSTROHERM EPS NEO 140 mm", "category": "Polystyren", "spec": "černá · λ 0,031", "unit": "m²", "qty": 120.0}, {"name": "Sika EPS 70F 200 mm", "category": "Polystyren", "spec": "bílá · λ 0,039", "unit": "m²", "qty": 16.0}, {"name": "AUSTROHERM EPS NEO 200 mm", "category": "Polystyren", "spec": "černá · λ 0,031", "unit": "m²", "qty": 5.0}, {"name": "EXTRAPOR 30 mm", "category": "Polystyren", "spec": "černá · λ 0,032", "unit": "m²", "qty": 32.0}, {"name": "EXTRAPOR 20 mm", "category": "Polystyren", "spec": "černá · λ 0,032", "unit": "m²", "qty": 12.5}, {"name": "DEK SD (XPS) 150 mm", "category": "Polystyren", "spec": "bílá · λ 0,034", "unit": "m²", "qty": 18.0}, {"name": "Styro XPS 300 SP I 100 mm", "category": "Polystyren", "spec": "zelený balík · λ 0,034", "unit": "m²", "qty": 24.0}, {"name": "Synthos XPS PRIME G30 IR 80 mm", "category": "Polystyren", "spec": "bílé balíky · λ 0,034", "unit": "m²", "qty": 7.5}, {"name": "FIBRAN XPS ETICS GF-I 120 mm", "category": "Polystyren", "spec": "modrý balík · λ 0,035", "unit": "m²", "qty": 3.4}, {"name": "CHL PIR ALU 60 mm", "category": "Polystyren", "spec": "λ 0,022", "unit": "m²", "qty": 10.94}, {"name": "Kooltherm K5 120 mm", "category": "Polystyren", "spec": "λ 0,021", "unit": "m²", "qty": 28.8}, {"name": "ISOVER TF PROFI 120 mm", "category": "Skelná vata", "spec": "λ 0,035", "unit": "m²", "qty": 38.4}, {"name": "ISOVERT PROFI + PETRALANA 140 mm", "category": "Skelná vata", "spec": "λ 0,035", "unit": "m²", "qty": 6.0}, {"name": "PETRALANA 60 mm", "category": "Skelná vata", "spec": "λ 0,035", "unit": "m²", "qty": 18.0}, {"name": "ISOVER T-P 1200 40 mm", "category": "Skelná vata", "spec": "λ 0,035", "unit": "m²", "qty": 17.28}, {"name": "KNAUFINSOLUTION 120 mm", "category": "Skelná vata", "spec": "λ 0,034", "unit": "m²", "qty": 96.48}, {"name": "PETRALANA + ISOVER 100 mm", "category": "Skelná vata", "spec": "λ 0,035", "unit": "m²", "qty": 104.4}, {"name": "KNAUFINSOLUTION 120 mm", "category": "Skelná vata", "spec": "λ 0,035", "unit": "m²", "qty": 13.44}, {"name": "PETRALANA 140 mm", "category": "Skelná vata", "spec": "λ 0,035", "unit": "m²", "qty": 31.2}, {"name": "ROCKWOOL 50 mm", "category": "Skelná vata", "spec": "λ 0,037", "unit": "m²", "qty": 91.2}, {"name": "ISOVER 160 mm", "category": "Skelná vata", "spec": "λ 0,035", "unit": "m²", "qty": 9.6}, {"name": "ISOVER 140 mm", "category": "Skelná vata", "spec": "λ 0,035", "unit": "m²", "qty": 10.8}, {"name": "ISOVER 30 mm", "category": "Skelná vata", "spec": "λ 0,035", "unit": "m²", "qty": 50.4}, {"name": "URSA GEO UDP 1250 20 mm", "category": "Skelná vata", "spec": "λ 0,034", "unit": "m²", "qty": 91.2}, {"name": "Měkká ISOVER UNI 100 mm", "category": "Skelná vata", "spec": "λ 0,035", "unit": "m²", "qty": 70.0}];
+function parseNum(v){ return parseFloat(String(v).replace(/\s/g,"").replace(",",".")); }
+function round2(n){ return Math.round(n*100)/100; }
+function fmtQty(n){ return Number(n).toLocaleString("cs-CZ",{maximumFractionDigits:2}); }
+var TOOL_SEED = [["1001", "Ostatní", "Řezačka asfaltu STIHL"], ["1002", "Bourací kladiva", "Bourací kladivo HILTI TE2000-AVR 4/25"], ["1003", "Ostatní", "Tlaková myčka Riwall pro"], ["1004", "Vysavače", "Vysavač Hilti VC 40X 9/25"], ["1005", "Vysavače", "Vysavač Narex VYS 30-21"], ["1006", "Vysavače", "Vysvač MAKITA VC2512L"], ["1007", "Vysavače", "Vysavač BOSCH GAS 20 L SFC"], ["1008", "Vysavače", "Vysavač PROTOOL VCP 260 E-L"], ["1009", "Vysavače", "Vysavač PRO-CRAFT VP1400"], ["1010", "Vysavače", "Vysavač NEOtools 04-738"], ["1011", "Ostatní", "Stříkací agregát LP555 3/25"], ["1012", "Ostatní", "Nabíjecí stanice HILTI B3600 4/25"], ["1013", "Ostatní", "Tlaková myčka EXTOL premium"], ["1015", "Ostatní", "Pila DEWALT Allligátor"], ["1016", "Ostatní", "Rotační Laser FRE-203-XR 10/25"], ["1017", "Bourací kladiva", "Bourací kladivo HILTI TE 500-AVR 7/23 - I"], ["1018", "Bourací kladiva", "Bourací kladivo HILTI TE 500-AVR 7/23 - II"], ["1019", "Ostatní", "Rotační Laser FKD FRE208 7/2023 - I"], ["1020", "Ostatní", "Rotační Laser FKD FRE208 7/2023 - II"], ["1021", "Odvlhčovače", "Odvlhčovač CFO 20P 7/23 - I Sinclare"], ["1022", "Odvlhčovače", "Odvlhčovač CFO 20P 7/23 - II Sinclare"], ["1023", "Bourací kladiva", "Kladivo vrtací SDS MAX RawlPlug 7/23 - I"], ["1024", "Bourací kladiva", "Kladivo vrtací SDS MAX RawlPlug 7/23 - II"], ["1025", "Bourací kladiva", "Bourací kladivo HILTI TE 500-AVR 11/23"], ["1026", "Bourací kladiva", "Bourací kladivo HILTI TE 700-AVR 11/23"], ["1027", "Ostatní", "Hřebíkovačka DEWALT DCN692P 5/24"], ["1028", "Ostatní", "Rotační Laser FKD FRE203XG 8/2024"], ["1029", "Ostatní", "Vibrátor HILTI AKU 10/24"], ["1030", "Bourací kladiva", "Bourací kladivo HILTI TE 1000-AVR 10/24"], ["1031", "Vysavače", "Vysavač Hilti VC 40X 10/24"], ["1032", "Ostatní", "Bruska kotoučová HILTI DGH 130 10/24 - I"], ["1033", "Ostatní", "Bruska kotoučová HILTI DGH 130 10/24 - II"], ["1034", "Vysavače", "Vysavač Hilti VC 40X 12/24"], ["1035", "Ostatní", "Pila DEWALT Allligátor 2/25"], ["1036", "Bourací kladiva", "Bourací kladivo HILTI TE 700-AVR 4/25 - I"], ["1037", "Bourací kladiva", "Bourací kladivo HILTI TE 700-AVR 4/25 - II"], ["1038", "Bourací kladiva", "AKU vrtací kladivo TE 60-22 4/25 - II"], ["1039", "Bourací kladiva", "AKU kombinované kladivo TE 30-22 4/25 - I"], ["1040", "Bourací kladiva", "AKU kombinované kladivo TE 30-22 4/25 - II"], ["1041", "Ostatní", "Řezačka na obklady a dlažbu F1 Brooklin 6/25"], ["1042", "Ostatní", "Pila DEWALT Allligátor 10/25"], ["1043", "Ostatní", "Ruční elektrický hoblík"], ["1044", "Vysavače", "Vysavač Flex s žirafou na broušení SDK"], ["1045", "Ostatní", "Řezačka stolová na obklady a dlažbu BROOKLIN"], ["1046", "Ostatní", "Centrála benzínová PROMAC ES 8000"], ["1047", "Ostatní", "Dusadlo TREMIX šedé střední"], ["1048", "Ostatní", "Dusadlo BOMAGBPR 70/70 D velké"], ["1049", "Ostatní", "Dusací noha TREMIX"], ["1050", "Ostatní", "Naftové topidlo ma-tech DMA-20"], ["1051", "Ostatní", "Naftové topidlo ma-tech DMA-20 F"], ["1052", "Ostatní", "Vrátek na lešení CAMAX P-150"], ["1053", "Ostatní", "Vrátek na lešení CAMAX P-200"], ["1054", "Odvlhčovače", "Odvlhčovač ATIKA oranžový"], ["1055", "Odvlhčovače", "Odvlhčovač ATIKA oranžový"]];
+var FIREBASE_CONFIG = {
+  apiKey: "AIzaSyBpNwvKnsc9Zog55YBZVYioYRYK1W58RFM",
+  authDomain: "letostav-sklad.firebaseapp.com",
+  projectId: "letostav-sklad",
+  storageBucket: "letostav-sklad.firebasestorage.app",
+  messagingSenderId: "82121913623",
+  appId: "1:82121913623:web:965dec74bb31875b2b3352"
+};
+var FB_VER = "12.19.0";
+var FB_BASE = "https://www.gstatic.com/firebasejs/" + FB_VER + "/";
+var DEVICE_KEY = "letostav_sklad_fb_device_v1";
+var LOGO_SRC = "data:image/jpeg;base64,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";
+
+function uid(prefix){ return (prefix||"id") + "_" + Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+function now(){ return Date.now(); }
+
+function loadDevice(){
+  try{ var raw = localStorage.getItem(DEVICE_KEY); if(raw) return JSON.parse(raw); }catch(e){}
+  return { unlocked:false, personName:null, admin:false };
+}
+function saveDevice(){ try{ localStorage.setItem(DEVICE_KEY, JSON.stringify(device)); }catch(e){} }
+
+var state = { items:[], tools:[], stavby:[], people:[], movements:[], toolLog:[], settings:{ alertDays:14 } };
+var device = loadDevice();
+var activeView = "prehled";
+var pinBuffer = "";
+var pinBusy = false;
+var pinMsg = "";
+var materialFilter = "";
+var materialSklad = "senik";
+var materialCat = "vse";
+var toolFilter = "";
+var toolCat = "vse";
+var historyTab = "vse";
+
+/* ---------------- Firebase ---------------- */
+var fb = null;            // { db, auth, uid }
+var F = null;             // firestore module
+var conn = "loading";     // loading | ready | error
+var connError = "";
+var initialized = null;   // null = neznámo, true/false po načtení public/status
+var subs = [];
+var loaded = {};
+var LOAD_KEYS = ["items","tools","stavby","people","config"];
+function allLoaded(){ return LOAD_KEYS.every(function(k){ return loaded[k]; }); }
+function dref(path){ return F.doc(fb.db, path); }
+function cref(path){ return F.collection(fb.db, path); }
+function slug(s){ return String(s).normalize("NFD").replace(/[̀-ͯ]/g,"").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"").slice(0,80) || ("x"+Date.now()); }
+function withTimeout(p, ms){
+  return Promise.race([p, new Promise(function(_, rej){ setTimeout(function(){ rej({code:"timeout"}); }, ms||15000); })]);
+}
+function errText(e){
+  var c = e && e.code || "";
+  if(c==="permission-denied" || c==="firestore/permission-denied") return "Na tuhle akci nemáš oprávnění.";
+  if(c==="timeout" || c==="unavailable") return "Nejde se připojit k internetu. Zkus to znovu.";
+  return "Něco se nepovedlo ("+(c||"chyba")+"). Zkus to znovu.";
+}
+function isDenied(e){ var c = e && e.code || ""; return c==="permission-denied" || c==="firestore/permission-denied"; }
+
+var renderQueued = false;
+function scheduleRender(){
+  if(renderQueued) return;
+  renderQueued = true;
+  requestAnimationFrame(function(){ renderQueued = false; render(); });
+}
+
+async function initFirebase(){
+  try{
+    var appM = await import(FB_BASE + "firebase-app.js");
+    var authM = await import(FB_BASE + "firebase-auth.js");
+    F = await import(FB_BASE + "firebase-firestore.js");
+    var app = appM.initializeApp(FIREBASE_CONFIG);
+    var db;
+    try{ db = F.initializeFirestore(app, { localCache: F.persistentLocalCache({ tabManager: F.persistentMultipleTabManager() }) }); }
+    catch(e){ db = F.getFirestore(app); }
+    var auth = authM.getAuth(app);
+    await auth.authStateReady();
+    if(!auth.currentUser) await withTimeout(authM.signInAnonymously(auth), 20000);
+    fb = { db:db, auth:auth, uid:auth.currentUser.uid };
+    conn = "ready";
+    if(device.unlocked) startSync(); else await checkInitialized();
+  }catch(e){
+    conn = "error"; connError = errText(e);
+    try{ console.error(e); }catch(_){}
+  }
+  render();
+}
+async function checkInitialized(){
+  try{
+    var s = await withTimeout(F.getDoc(dref("public/status")), 15000);
+    initialized = s.exists();
+  }catch(e){ initialized = null; conn = "error"; connError = errText(e); }
+}
+
+function mapDocs(snap){ return snap.docs.map(function(d){ var o = d.data(); o.id = d.id; return o; }); }
+function startSync(){
+  stopSync();
+  var onErr = function(e){
+    if(isDenied(e)){ lockOut("Přístupový kód se změnil. Zadej nový kód."); return; }
+    toast(errText(e));
+  };
+  subs.push(F.onSnapshot(cref("items"), function(s){ state.items = mapDocs(s).sort(function(a,b){ return String(a.order||a.id).localeCompare(String(b.order||b.id),"cs",{numeric:true}); }); loaded.items = true; scheduleRender(); }, onErr));
+  subs.push(F.onSnapshot(cref("tools"), function(s){ state.tools = mapDocs(s); loaded.tools = true; scheduleRender(); }, onErr));
+  subs.push(F.onSnapshot(cref("stavby"), function(s){ state.stavby = mapDocs(s); loaded.stavby = true; scheduleRender(); }, onErr));
+  subs.push(F.onSnapshot(cref("people"), function(s){ state.people = mapDocs(s).map(function(p){ return p.name; }).filter(Boolean).sort(function(a,b){ return a.localeCompare(b,"cs"); }); loaded.people = true; scheduleRender(); }, onErr));
+  subs.push(F.onSnapshot(dref("config/settings"), function(s){ var d = s.exists()? s.data() : {}; state.settings.alertDays = d.alertDays || 14; loaded.config = true; scheduleRender(); }, onErr));
+  subs.push(F.onSnapshot(F.query(cref("movements"), F.orderBy("ts","desc"), F.limit(400)), function(s){ state.movements = mapDocs(s); loaded.movements = true; scheduleRender(); }, onErr));
+  subs.push(F.onSnapshot(F.query(cref("toolLog"), F.orderBy("ts","desc"), F.limit(400)), function(s){ state.toolLog = mapDocs(s); loaded.toolLog = true; scheduleRender(); }, onErr));
+}
+function stopSync(){ subs.forEach(function(u){ try{ u(); }catch(e){} }); subs = []; loaded = {}; }
+function lockOut(msg){
+  stopSync();
+  device.unlocked = false; device.admin = false; saveDevice();
+  pinMsg = msg || ""; pinBuffer = "";
+  closeModal(); closeScanner && closeScanner();
+  checkInitialized().then(render);
+  render();
+}
+async function tryPin(pin){
+  await withTimeout(F.setDoc(dref("members/"+fb.uid), { pin: pin, at: F.serverTimestamp() }), 15000);
+}
+async function tryAdmin(code){
+  await withTimeout(F.setDoc(dref("admins/"+fb.uid), { adminPin: code, at: F.serverTimestamp() }), 15000);
+}
+function adminFail(e){
+  if(isDenied(e)){ device.admin = false; saveDevice(); render(); toast("Režim správce vypršel (kód správce se změnil). Odemkni ho znovu."); }
+  else toast(errText(e));
+}
+
+/* ---- první spuštění: kódy + nahrání dat ---- */
+async function runSetup(pin, adminPin, name){
+  var b = F.writeBatch(fb.db);
+  b.set(dref("secret/app"), { pin: pin, adminPin: adminPin });
+  b.set(dref("members/"+fb.uid), { pin: pin, at: F.serverTimestamp() });
+  b.set(dref("admins/"+fb.uid), { adminPin: adminPin, at: F.serverTimestamp() });
+  try{ await withTimeout(b.commit(), 20000); }
+  catch(e){
+    if(!isDenied(e)) throw e;
+    // appka už kódy má (předchozí nedokončený pokus) – zkus se přihlásit zadanými kódy a pokračovat
+    await tryPin(pin); await tryAdmin(adminPin);
+  }
+  var writes = [];
+  writes.push(["config/settings", { alertDays: 14 }]);
+  STAVBY_SEED.forEach(function(n, i){ writes.push(["stavby/s"+String(i+1).padStart(2,"0"), { name:n, active:true }]); });
+  ["Kancelář","Sklad", name].filter(Boolean).forEach(function(n){ writes.push(["people/"+slug(n), { name:n }]); });
+  ITEM_SEED.forEach(function(r, i){ var id = "i"+String(i+1).padStart(3,"0"); writes.push(["items/"+id, { order:id, sklad:"senik", name:r.name, category:r.category, spec:r.spec, unit:r.unit, qty:r.qty, minQty:0, location:"" }]); });
+  TOOL_SEED.forEach(function(r){ writes.push(["tools/t"+r[0], { invNo:r[0], category:r[1], name:r[2], status:"in", borrower:null, stavbaId:null, since:null }]); });
+  for(var k=0; k<writes.length; k+=15){
+    await withTimeout(Promise.all(writes.slice(k, k+15).map(function(w){ return F.setDoc(dref(w[0]), w[1]); })), 30000);
+    var el = document.getElementById("setupProgress");
+    if(el) el.textContent = "Nahrávám data… " + Math.min(100, Math.round((k+15)/writes.length*100)) + " %";
+  }
+  await withTimeout(F.setDoc(dref("public/status"), { initialized:true, at:F.serverTimestamp() }), 15000);
+  device.unlocked = true; device.admin = true; device.personName = name; saveDevice();
+  initialized = true;
+  startSync();
+}
+
+/* ---------------- helpers ---------------- */
+function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g, function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]; }); }
+function stavbaName(id, fallback){ var s = state.stavby.find(function(x){return x.id===id;}); return s? s.name : (fallback || "—"); }
+function itemById(id){ return state.items.find(function(x){return x.id===id;}); }
+function toolById(id){ return state.tools.find(function(x){return x.id===id;}); }
+function daysAgo(ts){ return Math.floor((now()-ts)/86400000); }
+function daysTxt(ts){ var d=daysAgo(ts); return d<=0?"dnes":(d===1?"1 den":(d<5?d+" dny":d+" dní")); }
+function fmtDate(ts){
+  var d = new Date(ts);
+  return d.toLocaleDateString("cs-CZ",{day:"numeric",month:"numeric",year:"numeric"}) + " " + d.toLocaleTimeString("cs-CZ",{hour:"2-digit",minute:"2-digit"});
+}
+function fmtRel(ts){
+  var d = daysAgo(ts);
+  if(d<=0) return "dnes";
+  if(d===1) return "včera";
+  if(d<7) return "před "+d+" dny";
+  return fmtDate(ts).split(" ")[0];
+}
+function initials(name){ if(!name) return "?"; var p=name.trim().split(/\s+/); return (p[0][0]+(p[1]?p[1][0]:"")).toUpperCase(); }
+
+/* ---------------- render root ---------------- */
+function render(){
+  // zachovat fokus v hledání při překreslení z databáze
+  var ae = document.activeElement, keepId = null, selS = 0, selE = 0;
+  if(ae && ae.id && ae.tagName==="INPUT" && document.getElementById("viewport").contains(ae)){ keepId = ae.id; selS = ae.selectionStart; selE = ae.selectionEnd; }
+  if(conn==="loading"){ renderMessageGate("Připojuji se…", ""); return; }
+  if(conn==="error"){ renderMessageGate("Nejde se připojit", connError + " Zkontroluj internet a obnov stránku.", true); return; }
+  if(!device.unlocked){
+    if(initialized===false){ renderSetup(); return; }
+    renderGatePin(); return;
+  }
+  if(!allLoaded()){ renderMessageGate("Načítám sklad…", ""); return; }
+  if(!device.personName){ renderGatePerson(); return; }
+  document.getElementById("gateHost").innerHTML = "";
+  document.getElementById("shellHost").style.display = "flex";
+  renderBanner();
+  renderTopbar();
+  renderView();
+  renderNav();
+  if(keepId){ var el = document.getElementById(keepId); if(el){ el.focus(); try{ el.setSelectionRange(selS, selE); }catch(e){} } }
+}
+function renderMessageGate(title, text, withReload){
+  document.getElementById("shellHost").style.display = "none";
+  document.getElementById("gateHost").innerHTML =
+    '<div class="gate"><img class="gate-logo" src="'+LOGO_SRC+'" alt="Letostav">'+
+    '<div><h1>'+esc(title)+'</h1>'+(text?'<p>'+esc(text)+'</p>':'')+'</div>'+
+    (withReload?'<button class="btn btn-primary" onclick="location.reload()">Zkusit znovu</button>':'')+'</div>';
+}
+function renderSetup(){
+  document.getElementById("shellHost").style.display = "none";
+  document.getElementById("gateHost").innerHTML =
+    '<div class="gate" style="justify-content:flex-start; padding-top:40px;">'+
+      '<img class="gate-logo" src="'+LOGO_SRC+'" alt="Letostav">'+
+      '<div><h1>První spuštění</h1><p>Appka je napojená na novou databázi. Nastav kódy – nahraju do ní nářadí, izolace ze Seníku a stavby. Tohle se dělá jen jednou.</p></div>'+
+      '<div style="width:100%; max-width:340px; text-align:left;">'+
+        '<div class="field"><label>Přístupový kód pro všechny (4 číslice)</label><input id="suPin" inputmode="numeric" maxlength="4" autocomplete="off"></div>'+
+        '<div class="field"><label>Kód správce – jen pro tebe (6–8 číslic)</label><input id="suAdmin" type="password" inputmode="numeric" maxlength="8" autocomplete="off"></div>'+
+        '<div class="field"><label>Tvoje jméno</label><input id="suName" value="Adam Jež"></div>'+
+        '<div class="gate-error" id="suErr"></div>'+
+        '<button class="btn btn-primary btn-block" id="suGo">Založit sklad</button>'+
+        '<div class="hint" id="setupProgress" style="margin-top:10px; text-align:center;"></div>'+
+      '</div>'+
+    '</div>';
+  document.getElementById("suGo").addEventListener("click", async function(){
+    var pin = document.getElementById("suPin").value.trim();
+    var adm = document.getElementById("suAdmin").value.trim();
+    var name = document.getElementById("suName").value.trim();
+    var err = document.getElementById("suErr");
+    if(!/^\d{4}$/.test(pin)){ err.textContent = "Přístupový kód musí mít přesně 4 číslice."; return; }
+    if(!/^\d{6,8}$/.test(adm)){ err.textContent = "Kód správce musí mít 6 až 8 číslic."; return; }
+    if(!name){ err.textContent = "Vyplň svoje jméno."; return; }
+    var btn = this; btn.disabled = true; err.textContent = "";
+    document.getElementById("setupProgress").textContent = "Zakládám…";
+    try{ await runSetup(pin, adm, name); render(); toast("Sklad je založený. Vítej!"); }
+    catch(e){ btn.disabled = false; document.getElementById("setupProgress").textContent = ""; err.textContent = isDenied(e) ? "Appka už je založená jinými kódy – zadej správné kódy." : errText(e); try{ console.error(e); }catch(_){} }
+  });
+}
+
+/* ---------------- PIN gate ---------------- */
+function renderGatePin(){
+  document.getElementById("shellHost").style.display = "none";
+  var dotsHtml = "";
+  for(var i=0;i<4;i++){ dotsHtml += '<div class="pin-dot'+(i<pinBuffer.length?" filled":"")+'"></div>'; }
+  var keys = ["1","2","3","4","5","6","7","8","9","","0","⌫"];
+  var keysHtml = keys.map(function(k){
+    if(k==="") return '<div></div>';
+    if(k==="⌫") return '<button class="key ghost" data-key="back">⌫</button>';
+    return '<button class="key" data-key="'+k+'">'+k+'</button>';
+  }).join("");
+  document.getElementById("gateHost").innerHTML =
+    '<div class="gate">'+
+      '<img class="gate-logo" src="'+LOGO_SRC+'" alt="Letostav">'+
+      '<div><h1>Sklad</h1><p>Zadej přístupový kód appky. Kód dostaneš od koordinátora, jednou na zařízení, pak už se ptát nebude.</p></div>'+
+      '<div class="pin-dots">'+dotsHtml+'</div>'+
+      '<div class="gate-error" id="pinErr">'+esc(pinBusy ? "Ověřuji…" : pinMsg)+'</div>'+
+      '<div class="keypad">'+keysHtml+'</div>'+
+    '</div>';
+  document.querySelectorAll("[data-key]").forEach(function(b){
+    b.addEventListener("click", function(){
+      var k = b.getAttribute("data-key");
+      if(pinBusy) return;
+      if(k==="back"){ pinBuffer = pinBuffer.slice(0,-1); render(); return; }
+      if(pinBuffer.length>=4) return;
+      pinBuffer += k; pinMsg = "";
+      if(pinBuffer.length===4){
+        pinBusy = true; render();
+        tryPin(pinBuffer).then(function(){
+          pinBusy = false; pinBuffer = ""; device.unlocked = true; saveDevice(); startSync(); render();
+        }).catch(function(e){
+          pinBusy = false; pinBuffer = "";
+          pinMsg = isDenied(e) ? "Nesprávný kód, zkus to znovu." : errText(e);
+          render();
+        });
+      } else { render(); }
+    });
+  });
+}
+
+/* ---------------- person gate ---------------- */
+function renderGatePerson(){
+  document.getElementById("shellHost").style.display = "none";
+  var listHtml = state.people.map(function(p){
+    return '<button class="person-btn" data-person="'+esc(p)+'"><span class="person-avatar">'+esc(initials(p))+'</span>'+esc(p)+'</button>';
+  }).join("");
+  document.getElementById("gateHost").innerHTML =
+    '<div class="gate">'+
+      '<img class="gate-logo" src="'+LOGO_SRC+'" alt="Letostav">'+
+      '<div><h1>Kdo jsi?</h1><p>Appka si tě bude pamatovat na tomhle zařízení, ať se u příjmu a výdeje neptá pokaždé znovu.</p></div>'+
+      '<div class="person-list">'+listHtml+'</div>'+
+      '<div class="newperson-row"><input id="newPersonInput" placeholder="Nové jméno…"><button class="btn btn-primary" id="newPersonBtn">Přidat</button></div>'+
+    '</div>';
+  document.querySelectorAll("[data-person]").forEach(function(b){
+    b.addEventListener("click", function(){ device.personName = b.getAttribute("data-person"); saveDevice(); render(); });
+  });
+  document.getElementById("newPersonBtn").addEventListener("click", function(){
+    var v = document.getElementById("newPersonInput").value.trim();
+    if(!v) return;
+    if(state.people.indexOf(v)===-1){ F.setDoc(dref("people/"+slug(v)), { name:v }).catch(function(){}); }
+    device.personName = v; saveDevice(); render();
+  });
+}
+
+/* ---------------- banner ---------------- */
+function renderBanner(){
+  document.getElementById("banner").style.display = "none";
+}
+
+/* ---------------- topbar ---------------- */
+function renderTopbar(){
+  document.getElementById("topbar").innerHTML =
+    '<div class="brand"><img class="brand-logo" src="'+LOGO_SRC+'" alt="Letostav"><div><div class="brand-name">Sklad</div><div class="brand-sub">materiál &amp; nářadí</div></div></div>'+
+    '<button id="personChip"><span class="person-avatar">'+esc(initials(device.personName))+'</span>'+esc(device.personName)+'</button>'+
+    '<button id="gearBtn"'+(isAdmin()?' class="admin" title="Režim správce"':' title="Nastavení (správce)"')+'>⚙</button>';
+  document.getElementById("personChip").addEventListener("click", function(){ device.personName=null; saveDevice(); render(); });
+  document.getElementById("gearBtn").addEventListener("click", function(){ requireAdmin(openSettingsModal); });
+}
+
+/* ---------------- nav ---------------- */
+function renderNav(){
+  document.getElementById("scanNavBtn").onclick = openScanner;
+  document.querySelectorAll(".navbtn[data-view]").forEach(function(b){
+    b.classList.toggle("active", b.getAttribute("data-view")===activeView);
+    b.onclick = function(){ activeView = b.getAttribute("data-view"); render(); };
+  });
+}
+
+/* ---------------- view router ---------------- */
+function renderView(){
+  var vp = document.getElementById("viewport");
+  if(activeView==="prehled") vp.innerHTML = viewPrehled();
+  else if(activeView==="material") vp.innerHTML = viewMaterial();
+  else if(activeView==="naradi") vp.innerHTML = viewNaradi();
+  else vp.innerHTML = viewHistorie();
+  wireView();
+}
+
+/* ---------------- Přehled ---------------- */
+function viewPrehled(){
+  var lowItems = state.items.filter(function(i){ return i.minQty>0 ? i.qty < i.minQty : i.qty < 0; }).sort(function(a,b){return (a.qty-a.minQty)-(b.qty-b.minQty);});
+  var overdueTools = state.tools.filter(function(t){ return t.status==="out" && daysAgo(t.since) >= state.settings.alertDays; });
+  var outTools = state.tools.filter(function(t){ return t.status==="out"; });
+  var events = allEvents().slice(0,6);
+
+  var lowHtml = lowItems.length ? lowItems.slice(0,5).map(function(i){
+    return rowItem({icon:"▦", title:i.name, sub:skladName(i.sklad), endTop:fmtQty(i.qty)+" / "+fmtQty(i.minQty)+" "+i.unit, badge:i.qty<=0?"crit":"warn", badgeText:i.qty<=0?"Došlo":"Pod minimem", onClick:"openItemDetail('"+i.id+"')"});
+  }).join("") : '<div class="empty">Všeho je dost 👍</div>';
+
+  var toolHtml = overdueTools.length ? overdueTools.slice(0,5).map(function(t){
+    return rowItem({icon:"⚒", title:t.name, sub:"u: "+t.borrower+" · "+stavbaName(t.stavbaId), endTop:daysTxt(t.since), badge:"warn", badgeText:"Dlouho půjčeno", onClick:"openToolDetail('"+t.id+"')"});
+  }).join("") : '<div class="empty">Žádné nářadí přes limit.</div>';
+
+  var evHtml = events.length ? events.map(historyEntryHtml).join("") : '<div class="empty">Zatím žádná aktivita.</div>';
+
+  return ''+
+  '<div class="stat-row">'+
+    '<div class="stat '+(lowItems.length?"warn":"")+'"><div class="num mono">'+lowItems.length+'</div><div class="lbl">položek pod minimem</div></div>'+
+    '<div class="stat '+(overdueTools.length?"crit":"")+'"><div class="num mono">'+outTools.length+'</div><div class="lbl">nářadí půjčeno ('+overdueTools.length+' přes limit)</div></div>'+
+  '</div>'+
+  '<div>'+
+    '<div class="section-head"><h2>Nízké zásoby</h2><span class="count">'+lowItems.length+'</span></div>'+
+    '<div class="list" style="margin-top:8px;">'+lowHtml+'</div>'+
+  '</div>'+
+  '<div>'+
+    '<div class="section-head"><h2>Dlouho půjčené nářadí</h2><span class="count">limit '+state.settings.alertDays+' dní</span></div>'+
+    '<div class="list" style="margin-top:8px;">'+toolHtml+'</div>'+
+  '</div>'+
+  '<div>'+
+    '<div class="section-head"><h2>Poslední aktivita</h2></div>'+
+    '<div class="card pad" style="margin-top:8px;">'+evHtml+'</div>'+
+  '</div>';
+}
+
+function rowItem(o){
+  return '<button class="row-item" onclick="'+o.onClick+'">'+
+    '<div class="ricon">'+o.icon+'</div>'+
+    '<div class="row-main"><div class="row-title">'+esc(o.title)+'</div><div class="row-sub">'+esc(o.sub)+'</div></div>'+
+    '<div class="row-end">'+(o.endHtml||'<div class="row-qty">'+esc(o.endTop)+'</div>')+(o.badge?'<div class="badge '+o.badge+'">'+o.badgeText+'</div>':'')+'</div>'+
+  '</button>';
+}
+
+/* ---------------- Materiál ---------------- */
+function itemSub(i){ return [i.category, i.spec, i.location].filter(function(x){return x;}).join(" · "); }
+function viewMaterial(){
+  var q = materialFilter.toLowerCase();
+  var inSklad = state.items.filter(function(i){ return (i.sklad||"senik")===materialSklad; });
+  var cats = [];
+  inSklad.forEach(function(i){ if(i.category && cats.indexOf(i.category)===-1) cats.push(i.category); });
+  if(materialCat!=="vse" && cats.indexOf(materialCat)===-1) materialCat = "vse";
+  var items = inSklad.filter(function(i){
+    return (i.name+" "+(i.spec||"")).toLowerCase().indexOf(q)>-1 && (materialCat==="vse" || i.category===materialCat);
+  });
+  var rows = items.length ? items.map(function(i){
+    var badge = i.qty<=0 ? {c:"crit",t:"Došlo"} : (i.minQty>0 && i.qty<i.minQty ? {c:"warn",t:"Pod min."} : null);
+    return rowItem({icon:"▦", title:i.name, sub:itemSub(i), endTop:fmtQty(i.qty)+" "+i.unit, badge:badge&&badge.c, badgeText:badge&&badge.t, onClick:"openItemDetail('"+i.id+"')"});
+  }).join("") : (inSklad.length ? '<div class="empty">Nic nenalezeno.</div>'
+      : '<div class="empty">'+esc(skladName(materialSklad))+' je zatím prázdný.<br>Položky přidáš tlačítkem výše.</div>');
+
+  var seg = SKLADY.length<2 ? '' : '<div class="seg">'+SKLADY.map(function(s){
+    var n = state.items.filter(function(i){ return (i.sklad||"senik")===s.id; }).length;
+    return '<button class="'+(materialSklad===s.id?"active":"")+'" data-sklad="'+s.id+'">'+esc(s.name)+' ('+n+')</button>';
+  }).join("")+'</div>';
+  var chips = cats.length>1 ? '<div class="chip-row"><button class="chip '+(materialCat==="vse"?"active":"")+'" data-mcat="vse">Vše</button>'+
+    cats.map(function(c){ return '<button class="chip '+(materialCat===c?"active":"")+'" data-mcat="'+esc(c)+'">'+esc(c)+'</button>'; }).join("")+'</div>' : '';
+
+  return ''+ seg +
+  '<div class="search"><span class="ic">🔍</span><input id="materialSearch" placeholder="Hledat materiál…" value="'+esc(materialFilter)+'"></div>'+
+  chips +
+  (isAdmin()?'':'<!--')+'<button class="btn btn-primary btn-block" id="addItemBtn">+ Přidat položku'+(SKLADY.length>1?' do: '+esc(skladName(materialSklad)):'')+'</button>'+(isAdmin()?'':'-->')+
+  '<div class="section-head"><h2>'+esc(skladName(materialSklad))+'</h2><span class="count">'+items.length+' položek</span></div>'+
+  '<div class="list">'+rows+'</div>';
+}
+
+/* ---------------- Nářadí ---------------- */
+function toolLabel(t){ return t.name; }
+var toolGroupsCache = [];
+function toolParts(name){
+  var roman = null, dates = [];
+  var n = name.replace(/\s+-\s+(IV|V|I{1,3})(?=\s|$)/, function(m,r){ roman=r; return ""; });
+  n = n.replace(/\s*\b\d{1,2}\/\d{2,4}\b/g, function(m){ dates.push(m.trim()); return ""; });
+  n = n.replace(/\s+/g," ").trim();
+  return { base:n, label: dates.join(" ") + (roman ? (dates.length?" – ":"") + "kus " + roman : "") };
+}
+function buildToolGroups(){
+  var sorted = state.tools.slice().sort(function(a,b){ return String(a.invNo||"").localeCompare(String(b.invNo||""),"cs",{numeric:true}); });
+  var map = {}, list = [];
+  sorted.forEach(function(t){
+    var p = toolParts(t.name), key = p.base.toLowerCase();
+    if(!map[key]){ map[key] = {name:p.base, category:t.category, items:[], labels:[]}; list.push(map[key]); }
+    map[key].items.push(t); map[key].labels.push(p.label);
+  });
+  list.forEach(function(g, i){
+    g.idx = i;
+    var seen = {};
+    g.labels = g.labels.map(function(l, j){
+      if(!l || seen[l]) l = (l ? l+" – " : "") + "kus "+(j+1);
+      seen[l] = true; return l;
+    });
+  });
+  toolGroupsCache = list;
+  return list;
+}
+window.returnTool = async function(id){
+  var t = toolById(id); if(!t) return false;
+  var ref = dref("tools/"+id);
+  var logRef = F.doc(cref("toolLog"));
+  try{
+    await withTimeout(F.runTransaction(fb.db, async function(tx){
+      var s = await tx.get(ref);
+      if(!s.exists()) throw { code:"gone" };
+      var d = s.data();
+      if(d.status!=="out") throw { code:"already-in" };
+      tx.update(ref, { status:"in", borrower:null, stavbaId:null, since:null });
+      tx.set(logRef, { toolId:id, toolName:d.name, action:"return", personName:device.personName, borrower:d.borrower||"", stavbaId:d.stavbaId||null, stavbaName:stavbaName(d.stavbaId,""), ts:now() });
+    }), 20000);
+    toast("Vráceno na sklad: "+t.name);
+    return true;
+  }catch(e){
+    if(e && e.code==="already-in") toast("Tohle nářadí už mezitím někdo vrátil.");
+    else if(e && e.code==="gone") toast("Tohle nářadí už v appce není.");
+    else toast(errText(e));
+    return false;
+  }
+};
+window.openGroupDetail = function(idx){
+  var g = toolGroupsCache[idx]; if(!g) return;
+  var free = g.items.filter(function(t){return t.status==="in";}).length;
+  var rows = g.items.map(function(t, j){
+    var st = t.status==="in" ? '<span class="badge ok">Na skladě</span>'
+      : '<div class="piece-status">'+esc(t.borrower)+' · '+esc(stavbaName(t.stavbaId))+' · '+daysTxt(t.since)+'</div>'+
+        '<span class="badge '+(daysAgo(t.since)>=state.settings.alertDays?"warn":"neutral")+'">Půjčeno</span>';
+    var btn = t.status==="in" ? '<button class="btn btn-primary btn-sm" data-borrow="'+t.id+'">Půjčit</button>'
+      : '<button class="btn btn-outline btn-sm" data-return="'+t.id+'">Vrátit</button>';
+    return '<div class="piece"><div class="piece-main"><div class="piece-label">'+esc(g.labels[j])+'</div>'+st+'</div>'+btn+
+      (isAdmin()?'<button class="btn-ghost" data-edit="'+t.id+'" aria-label="Upravit">✎</button>':'')+'</div>';
+  }).join("");
+  openModal(
+    '<h3 class="modal-title">'+esc(g.name)+'</h3>'+
+    '<div class="hint">'+esc(g.category||"")+' · '+g.items.length+' ks · na skladě '+free+'</div>'+
+    '<div class="card pad" style="padding-block:4px;">'+rows+'</div>'
+  );
+  document.querySelectorAll("[data-borrow]").forEach(function(b){ b.addEventListener("click", function(){ openBorrowModal(b.getAttribute("data-borrow")); }); });
+  document.querySelectorAll("[data-return]").forEach(function(b){ b.addEventListener("click", async function(){ b.disabled = true; await returnTool(b.getAttribute("data-return")); render(); openGroupDetail(idx); }); });
+  document.querySelectorAll("[data-edit]").forEach(function(b){ b.addEventListener("click", function(){ openEditToolModal(b.getAttribute("data-edit")); }); });
+};
+function viewNaradi(){
+  var q = toolFilter.toLowerCase();
+  var cats = [];
+  state.tools.forEach(function(t){ if(t.category && cats.indexOf(t.category)===-1) cats.push(t.category); });
+  cats.sort(function(a,b){ return a==="Ostatní"?1:(b==="Ostatní"?-1:a.localeCompare(b,"cs")); });
+  var groups = buildToolGroups();
+  var tools = groups.filter(function(g){
+    var hay = (g.name+" "+g.items.map(function(t){return t.name+" "+(t.borrower||"");}).join(" ")).toLowerCase();
+    var anyOut = g.items.some(function(t){return t.status==="out";});
+    return hay.indexOf(q)>-1 && (toolCat==="vse" || (toolCat==="pujceno" ? anyOut : g.category===toolCat));
+  });
+  var outCount = state.tools.filter(function(t){return t.status==="out";}).length;
+  var rows = tools.length ? tools.map(function(g){
+    if(g.items.length===1){
+      var t = g.items[0];
+      if(t.status==="in") return rowItem({icon:"⚒", title:t.name, sub:(t.category||""), endTop:"", badge:"ok", badgeText:"Na skladě", onClick:"openToolDetail('"+t.id+"')"});
+      var over1 = daysAgo(t.since) >= state.settings.alertDays;
+      return rowItem({icon:"⚒", title:t.name, sub:t.borrower+" · "+stavbaName(t.stavbaId), endTop:daysTxt(t.since), badge:over1?"warn":"neutral", badgeText:over1?"Přes limit":"Půjčeno", onClick:"openToolDetail('"+t.id+"')"});
+    }
+    var total = g.items.length;
+    var free = g.items.filter(function(t){return t.status==="in";}).length;
+    var over = g.items.some(function(t){ return t.status==="out" && daysAgo(t.since)>=state.settings.alertDays; });
+    var pips = '<div class="pips" title="'+free+' z '+total+' na skladě">'+g.items.map(function(t){
+      var cls = t.status==="in" ? "pip" : ("pip out"+(daysAgo(t.since)>=state.settings.alertDays?" over":""));
+      return '<span class="'+cls+'"></span>';
+    }).join("")+'</div>';
+    var b = over ? {c:"warn",t:"Přes limit"} : (free===total ? {c:"ok",t:"Vše na skladě"} : (free===0 ? {c:"warn",t:"Vše půjčeno"} : {c:"neutral",t:free+" z "+total+" volné"}));
+    return rowItem({icon:"⚒", title:g.name, sub:(g.category||"")+" · "+total+" ks", endHtml:pips, badge:b.c, badgeText:b.t, onClick:"openGroupDetail("+g.idx+")"});
+  }).join("") : '<div class="empty">Nic nenalezeno.</div>';
+
+  var chips = '<button class="chip '+(toolCat==="vse"?"active":"")+'" data-tcat="vse">Vše</button>'+
+    '<button class="chip '+(toolCat==="pujceno"?"active":"")+'" data-tcat="pujceno">Půjčené ('+outCount+')</button>'+
+    cats.map(function(c){ return '<button class="chip '+(toolCat===c?"active":"")+'" data-tcat="'+esc(c)+'">'+esc(c)+'</button>'; }).join("");
+
+  return ''+
+  '<div class="search"><span class="ic">🔍</span><input id="toolSearch" placeholder="Hledat nářadí…" value="'+esc(toolFilter)+'"></div>'+
+  '<div class="chip-row">'+chips+'</div>'+
+  (isAdmin()?'<button class="btn btn-primary btn-block" id="addToolBtn">+ Přidat nářadí</button>':'')+
+  '<div class="section-head"><h2>Nářadí</h2><span class="count">'+state.tools.length+' ks celkem</span></div>'+
+  '<div class="list">'+rows+'</div>';
+}
+
+/* ---------------- Historie ---------------- */
+function allEvents(){
+  var ev = [];
+  state.movements.forEach(function(m){
+    var it = itemById(m.itemId);
+    ev.push({ts:m.ts, kind:"material", type:m.type, title:(m.type==="in"?"Příjem: ":"Výdej: ")+(it?it.name:(m.itemName||"?")),
+      meta:fmtQty(m.qty)+" "+(it?it.unit:(m.unit||""))+" · "+m.personName+(m.stavbaId?" · "+stavbaName(m.stavbaId, m.stavbaName):"")+(m.invoiceNo?" · dokl. "+m.invoiceNo:"")});
+  });
+  state.toolLog.forEach(function(l){
+    var t = toolById(l.toolId);
+    ev.push({ts:l.ts, kind:"tool", type:l.action, title:(l.action==="borrow"?"Půjčeno: ":"Vráceno: ")+(t?toolLabel(t):(l.toolName||"?")),
+      meta:(l.action==="borrow"? (l.borrower+(l.stavbaId?" · "+stavbaName(l.stavbaId, l.stavbaName):"")) : l.personName)});
+  });
+  ev.sort(function(a,b){ return b.ts-a.ts; });
+  return ev;
+}
+function historyEntryHtml(e){
+  var dotColor = e.kind==="material" ? (e.type==="in"?"var(--ok-ink)":"var(--accent)") : (e.type==="borrow"?"var(--warn-ink)":"var(--ok-ink)");
+  return '<div class="hist-entry"><div class="hist-dot" style="background:'+dotColor+'"></div>'+
+    '<div class="hist-body"><div class="hist-title">'+esc(e.title)+'</div>'+
+    '<div class="hist-meta">'+esc(e.meta)+' · '+fmtRel(e.ts)+', '+fmtDate(e.ts).split(" ")[1]+'</div></div></div>';
+}
+function viewHistorie(){
+  var ev = allEvents();
+  if(historyTab==="material") ev = ev.filter(function(e){return e.kind==="material";});
+  if(historyTab==="naradi") ev = ev.filter(function(e){return e.kind==="tool";});
+  var html = ev.length ? ev.map(historyEntryHtml).join("") : '<div class="empty">Zatím žádné záznamy.</div>';
+  return ''+
+  '<div class="chip-row">'+
+    '<button class="chip '+(historyTab==="vse"?"active":"")+'" data-tab="vse">Vše</button>'+
+    '<button class="chip '+(historyTab==="material"?"active":"")+'" data-tab="material">Materiál</button>'+
+    '<button class="chip '+(historyTab==="naradi"?"active":"")+'" data-tab="naradi">Nářadí</button>'+
+  '</div>'+
+  '<div class="card pad">'+html+'</div>';
+}
+
+/* ---------------- wiring per view ---------------- */
+function wireView(){
+  var ms = document.getElementById("materialSearch");
+  if(ms){ ms.addEventListener("input", function(){ materialFilter = ms.value; renderView(); ms.focus(); ms.selectionStart = ms.selectionEnd = ms.value.length; }); }
+  var ts = document.getElementById("toolSearch");
+  if(ts){ ts.addEventListener("input", function(){ toolFilter = ts.value; renderView(); ts.focus(); ts.selectionStart = ts.selectionEnd = ts.value.length; }); }
+  var aib = document.getElementById("addItemBtn"); if(aib) aib.addEventListener("click", openAddItemModal);
+  var atb = document.getElementById("addToolBtn"); if(atb) atb.addEventListener("click", openAddToolModal);
+  document.querySelectorAll("[data-sklad]").forEach(function(b){ b.addEventListener("click", function(){ materialSklad=b.getAttribute("data-sklad"); renderView(); }); });
+  document.querySelectorAll("[data-mcat]").forEach(function(b){ b.addEventListener("click", function(){ materialCat=b.getAttribute("data-mcat"); renderView(); }); });
+  document.querySelectorAll("[data-tcat]").forEach(function(b){ b.addEventListener("click", function(){ toolCat=b.getAttribute("data-tcat"); renderView(); }); });
+  document.querySelectorAll("[data-tab]").forEach(function(b){ b.addEventListener("click", function(){ historyTab=b.getAttribute("data-tab"); renderView(); }); });
+}
+
+/* ---------------- modal shell ---------------- */
+function openModal(html){
+  document.getElementById("modalSheet").innerHTML = '<div class="modal-handle"></div>' + html;
+  document.getElementById("modalRoot").classList.add("open");
+}
+window.closeModal = function(){ document.getElementById("modalRoot").classList.remove("open"); };
+
+function stavbaOptions(sel){
+  return state.stavby.filter(function(s){return s.active;}).slice().sort(function(a,b){ return a.name.localeCompare(b.name,"cs"); }).map(function(s){
+    return '<option value="'+s.id+'"'+(s.id===sel?" selected":"")+'>'+esc(s.name)+'</option>';
+  }).join("");
+}
+function peopleDatalist(id){
+  return '<datalist id="'+id+'">'+state.people.map(function(p){ return '<option value="'+esc(p)+'">'; }).join("")+'</datalist>';
+}
+
+/* ---- item detail / actions ---- */
+window.openItemDetail = function(id){
+  var i = itemById(id);
+  if(!i) return;
+  var badge = i.qty<=0 ? '<span class="badge crit">Došlo</span>' : (i.minQty>0 && i.qty<i.minQty ? '<span class="badge warn">Pod minimem</span>' : '');
+  openModal(
+    '<h3 class="modal-title">'+esc(i.name)+'</h3>'+
+    '<div class="hint">'+esc(skladName(i.sklad))+(itemSub(i)?' · '+esc(itemSub(i)):'')+'</div>'+
+    '<div class="card pad" style="margin-bottom:14px;"><div class="row-qty" style="font-size:22px;">'+fmtQty(i.qty)+' '+esc(i.unit)+'</div>'+(i.minQty>0?'<div class="hist-meta">minimum: '+fmtQty(i.minQty)+' '+esc(i.unit)+'</div>':'')+badge+'</div>'+
+    '<div class="modal-actions">'+
+      '<button class="btn btn-outline" id="btnIssue">− Výdej</button>'+
+      '<button class="btn btn-primary" id="btnReceive">+ Příjem</button>'+
+    '</div>'+
+    (isAdmin()?'<button class="btn-ghost" id="btnEditItem" style="margin-top:12px;">Upravit položku</button>':'')
+  );
+  document.getElementById("btnReceive").addEventListener("click", function(){ openReceiveModal(id); });
+  document.getElementById("btnIssue").addEventListener("click", function(){ openIssueModal(id); });
+  if(isAdmin()) document.getElementById("btnEditItem").addEventListener("click", function(){ openEditItemModal(id); });
+};
+
+function openReceiveModal(id){
+  var i = itemById(id);
+  openModal(
+    '<h3 class="modal-title">Příjem — '+esc(i.name)+'</h3>'+
+    '<div class="field"><label>Množství ('+esc(i.unit)+')</label><input type="text" inputmode="decimal" id="recQty" placeholder="např. 12,5" autofocus></div>'+
+    '<div class="field"><label>Číslo dokladu / faktury (nepovinné)</label><input id="recInvoice" placeholder="např. FAK-2026-0231"></div>'+
+    '<div class="field"><label>Poznámka (nepovinné)</label><textarea id="recNote"></textarea></div>'+
+    '<div class="modal-actions"><button class="btn btn-primary btn-block" id="recSave">Uložit příjem</button></div>'
+  );
+  document.getElementById("recSave").addEventListener("click", function(){
+    var q = parseNum(document.getElementById("recQty").value);
+    if(!q || q<=0){ alert("Zadej množství větší než 0."); return; }
+    q = round2(q);
+    var btn = this; btn.disabled = true;
+    var b = F.writeBatch(fb.db);
+    b.update(dref("items/"+i.id), { qty: F.increment(q) });
+    b.set(F.doc(cref("movements")), { itemId:i.id, itemName:i.name, unit:i.unit, type:"in", qty:q, personName:device.personName, stavbaId:null, stavbaName:"",
+      invoiceNo:document.getElementById("recInvoice").value.trim(), note:document.getElementById("recNote").value.trim(), ts:now() });
+    withTimeout(b.commit(), 20000).then(function(){ closeModal(); toast("Příjem uložen: +"+fmtQty(q)+" "+i.unit); })
+      .catch(function(e){ btn.disabled = false; toast(errText(e)); });
+  });
+}
+function openIssueModal(id){
+  var i = itemById(id);
+  openModal(
+    '<h3 class="modal-title">Výdej — '+esc(i.name)+'</h3>'+
+    '<div class="hint">'+esc(skladName(i.sklad))+' · skladem: '+fmtQty(i.qty)+' '+esc(i.unit)+'</div>'+
+    '<div class="field"><label>Množství ('+esc(i.unit)+')</label><input type="text" inputmode="decimal" id="issQty" placeholder="např. 12,5" autofocus></div>'+
+    '<div class="field"><label>Stavba / zakázka</label><select id="issStavba">'+stavbaOptions()+'</select></div>'+
+    '<div class="field"><label>Poznámka (nepovinné)</label><textarea id="issNote"></textarea></div>'+
+    '<div class="modal-actions"><button class="btn btn-primary btn-block" id="issSave">Uložit výdej</button></div>'
+  );
+  document.getElementById("issSave").addEventListener("click", function(){
+    var q = parseNum(document.getElementById("issQty").value);
+    if(!q || q<=0){ alert("Zadej množství větší než 0."); return; }
+    if(q > i.qty && !confirm("Na skladě je jen "+fmtQty(i.qty)+" "+i.unit+". Vydat i tak (stav půjde do mínusu)?")) return;
+    q = round2(q);
+    var btn = this; btn.disabled = true;
+    var stId = document.getElementById("issStavba").value;
+    var b = F.writeBatch(fb.db);
+    b.update(dref("items/"+i.id), { qty: F.increment(-q) });
+    b.set(F.doc(cref("movements")), { itemId:i.id, itemName:i.name, unit:i.unit, type:"out", qty:q, personName:device.personName, stavbaId:stId, stavbaName:stavbaName(stId,""),
+      invoiceNo:"", note:document.getElementById("issNote").value.trim(), ts:now() });
+    withTimeout(b.commit(), 20000).then(function(){ closeModal(); toast("Výdej uložen: −"+fmtQty(q)+" "+i.unit+" → "+stavbaName(stId)); })
+      .catch(function(e){ btn.disabled = false; toast(errText(e)); });
+  });
+}
+function openEditItemModal(id){
+  var i = id? itemById(id) : null;
+  var cats = [];
+  state.items.forEach(function(x){ if(x.category && cats.indexOf(x.category)===-1) cats.push(x.category); });
+  var skl = i ? (i.sklad||"senik") : materialSklad;
+  openModal(
+    '<h3 class="modal-title">'+(i?"Upravit položku":"Nová položka")+'</h3>'+
+    '<div class="field"'+(SKLADY.length<2?' hidden':'')+'><label>Sklad</label><select id="fSklad">'+SKLADY.map(function(s){ return '<option value="'+s.id+'"'+(s.id===skl?" selected":"")+'>'+esc(s.name)+'</option>'; }).join("")+'</select></div>'+
+    '<div class="field"><label>Název (včetně tloušťky / rozměru)</label><input id="fName" value="'+(i?esc(i.name):"")+'" placeholder="např. ISOVER UNI 100 mm"></div>'+
+    '<div class="field"><label>Popis (barva, balení, λ…) – nepovinné</label><input id="fSpec" value="'+(i?esc(i.spec||""):"")+'"></div>'+
+    '<div class="field-row"><div class="field"><label>Kategorie</label><input id="fCat" list="mcatList" value="'+(i?esc(i.category||""):"")+'"></div>'+
+    '<div class="field"><label>Jednotka</label><input id="fUnit" value="'+(i?esc(i.unit):"m²")+'"></div></div>'+
+    '<datalist id="mcatList">'+cats.map(function(c){return '<option value="'+esc(c)+'">';}).join("")+'</datalist>'+
+    '<div class="field-row"><div class="field"><label>Množství</label><input type="text" inputmode="decimal" id="fQty" value="'+(i?fmtQty(i.qty):"0")+'"></div>'+
+    '<div class="field"><label>Hlídat minimum</label><input type="text" inputmode="decimal" id="fMin" value="'+(i?fmtQty(i.minQty||0):"0")+'"></div></div>'+
+    '<div class="hint">Minimum 0 = nehlídat.</div>'+
+    '<div class="field"><label>Místo ve skladu – nepovinné</label><input id="fLoc" value="'+(i?esc(i.location||""):"")+'"></div>'+
+    '<div class="modal-actions">'+(i?'<button class="btn btn-danger" id="fDelete">Smazat</button>':'')+'<button class="btn btn-primary" id="fSave">Uložit</button></div>'
+  );
+  document.getElementById("fSave").addEventListener("click", function(){
+    var name = document.getElementById("fName").value.trim();
+    if(!name){ alert("Zadej název."); return; }
+    var data = { sklad:document.getElementById("fSklad").value, name:name, spec:document.getElementById("fSpec").value.trim(),
+      unit:document.getElementById("fUnit").value.trim()||"ks", location:document.getElementById("fLoc").value.trim(),
+      qty:round2(parseNum(document.getElementById("fQty").value)||0), minQty:round2(parseNum(document.getElementById("fMin").value)||0),
+      category:document.getElementById("fCat").value.trim() };
+    materialSklad = data.sklad;
+    var p = i ? F.updateDoc(dref("items/"+i.id), data) : F.setDoc(F.doc(cref("items")), Object.assign({ order:"z"+now() }, data));
+    withTimeout(p, 20000).then(function(){ closeModal(); toast(i ? "Položka upravena." : "Položka přidána."); }).catch(adminFail);
+  });
+  if(i){ document.getElementById("fDelete").addEventListener("click", function(){
+    if(!confirm("Opravdu smazat položku "+i.name+"?")) return;
+    withTimeout(F.deleteDoc(dref("items/"+i.id)), 20000).then(function(){ closeModal(); toast("Položka smazána."); }).catch(adminFail);
+  }); }
+}
+window.openAddItemModal = function(){ openEditItemModal(null); };
+
+/* ---- tool detail / actions ---- */
+window.openToolDetail = function(id){
+  var t = toolById(id);
+  if(!t) return;
+  var statusHtml = t.status==="in"
+    ? '<span class="badge ok">Na skladě</span>'
+    : '<span class="badge '+(daysAgo(t.since)>=state.settings.alertDays?"warn":"neutral")+'">Půjčeno '+daysAgo(t.since)+' dní</span>';
+  var infoHtml = t.status==="out" ? '<div class="hist-meta" style="margin-top:6px;">Komu: '+esc(t.borrower)+' · '+stavbaName(t.stavbaId)+' · od '+fmtDate(t.since).split(" ")[0]+'</div>' : "";
+  openModal(
+    '<h3 class="modal-title">'+esc(t.name)+'</h3>'+
+    '<div class="hint">'+esc(t.category||"")+'</div>'+
+    '<div class="card pad" style="margin-bottom:14px;">'+statusHtml+infoHtml+'</div>'+
+    '<div class="modal-actions">'+(t.status==="in"
+      ? '<button class="btn btn-primary btn-block" id="btnBorrow">Půjčit</button>'
+      : '<button class="btn btn-primary btn-block" id="btnReturn">Vrátit na sklad</button>')+
+    '</div>'+
+    (isAdmin()?'<button class="btn-ghost" id="btnEditTool" style="margin-top:12px;">Upravit nářadí</button>':'')
+  );
+  if(t.status==="in") document.getElementById("btnBorrow").addEventListener("click", function(){ openBorrowModal(id); });
+  else document.getElementById("btnReturn").addEventListener("click", async function(){ this.disabled = true; if(await returnTool(t.id)) closeModal(); else this.disabled = false; });
+  if(isAdmin()) document.getElementById("btnEditTool").addEventListener("click", function(){ openEditToolModal(id); });
+};
+function openBorrowModal(id){
+  var t = toolById(id);
+  openModal(
+    '<h3 class="modal-title">Půjčit — '+esc(t.name)+'</h3>'+
+    '<div class="field"><label>Komu</label><input id="bwWho" list="peopleList" value="'+esc(device.personName)+'"></div>'+
+    peopleDatalist("peopleList")+
+    '<div class="field"><label>Stavba / zakázka</label><select id="bwStavba">'+stavbaOptions()+'</select></div>'+
+    '<div class="modal-actions"><button class="btn btn-primary btn-block" id="bwSave">Uložit půjčení</button></div>'
+  );
+  document.getElementById("bwSave").addEventListener("click", function(){
+    var who = document.getElementById("bwWho").value.trim();
+    if(!who){ alert("Zadej komu se nářadí půjčuje."); return; }
+    var stId = document.getElementById("bwStavba").value;
+    var btn = this; btn.disabled = true;
+    var ref = dref("tools/"+t.id), logRef = F.doc(cref("toolLog"));
+    if(state.people.indexOf(who)===-1) F.setDoc(dref("people/"+slug(who)), { name:who }).catch(function(){});
+    withTimeout(F.runTransaction(fb.db, async function(tx){
+      var s = await tx.get(ref);
+      if(!s.exists()) throw { code:"gone" };
+      var d = s.data();
+      if(d.status==="out") throw { code:"taken", by:d.borrower };
+      var ts = now();
+      tx.update(ref, { status:"out", borrower:who, stavbaId:stId, since:ts });
+      tx.set(logRef, { toolId:t.id, toolName:d.name, action:"borrow", personName:device.personName, borrower:who, stavbaId:stId, stavbaName:stavbaName(stId,""), ts:ts });
+    }), 20000).then(function(){
+      closeModal(); toast("Půjčeno: "+t.name+" → "+stavbaName(stId));
+    }).catch(function(e){
+      btn.disabled = false;
+      if(e && e.code==="taken"){ closeModal(); toast("Mezitím si to půjčil(a): "+(e.by||"někdo jiný")+"."); }
+      else if(e && e.code==="gone"){ closeModal(); toast("Tohle nářadí už v appce není."); }
+      else toast(errText(e));
+    });
+  });
+}
+function openEditToolModal(id, presetNo){
+  var t = id? toolById(id) : null;
+  var cats = [];
+  state.tools.forEach(function(x){ if(x.category && cats.indexOf(x.category)===-1) cats.push(x.category); });
+  var nextNo = state.tools.reduce(function(m,x){ var n=parseInt(x.invNo,10); return isNaN(n)?m:Math.max(m,n); }, 1000) + 1;
+  openModal(
+    '<h3 class="modal-title">'+(t?"Upravit nářadí":"Nové nářadí")+'</h3>'+
+    '<div class="field"><label>Název</label><input id="tName" value="'+(t?esc(t.name):"")+'"></div>'+
+    '<div class="field"><label>Kategorie</label><input id="tCat" list="catList" value="'+(t?esc(t.category||""):"Ostatní")+'"></div>'+
+    '<datalist id="catList">'+cats.map(function(c){return '<option value="'+esc(c)+'">';}).join("")+'</datalist>'+
+    '<div class="modal-actions">'+(t?'<button class="btn btn-danger" id="tDelete">Smazat</button>':'')+'<button class="btn btn-primary" id="tSave">Uložit</button></div>'
+  );
+  document.getElementById("tSave").addEventListener("click", function(){
+    var name = document.getElementById("tName").value.trim();
+    var no = t ? t.invNo : (presetNo || String(nextNo));
+    var cat = document.getElementById("tCat").value.trim() || "Ostatní";
+    if(!name){ alert("Zadej název."); return; }
+    var p;
+    if(t){ p = F.updateDoc(dref("tools/"+t.id), { name:name, category:cat }); }
+    else {
+      if(state.tools.some(function(x){ return String(x.invNo)===String(no); })){ alert("Nářadí s tímto QR kódem už v appce je."); return; }
+      p = F.setDoc(dref("tools/t"+slug(no)), { invNo:String(no), category:cat, name:name, status:"in", borrower:null, stavbaId:null, since:null });
+    }
+    withTimeout(p, 20000).then(function(){ closeModal(); toast(t ? "Nářadí upraveno." : (presetNo ? "Přidáno – QR kód je teď spárovaný s: "+name : "Nářadí přidáno.")); }).catch(adminFail);
+  });
+  if(t){ document.getElementById("tDelete").addEventListener("click", function(){
+    if(!confirm("Opravdu smazat nářadí "+t.name+"?")) return;
+    withTimeout(F.deleteDoc(dref("tools/"+t.id)), 20000).then(function(){ closeModal(); toast("Nářadí smazáno."); }).catch(adminFail);
+  }); }
+}
+window.openAddToolModal = function(){ openEditToolModal(null); };
+
+/* ---- settings ---- */
+function openSettingsModal(){
+  var act = state.stavby.filter(function(s){ return s.active; }).slice().sort(function(a,b){ return a.name.localeCompare(b.name,"cs"); });
+  var stavbyHtml = act.map(function(s){
+    return '<div class="row-item" style="padding:9px 11px;"><div class="row-main row-title" style="font-size:13.5px;">'+esc(s.name)+'</div>'+
+      '<button class="btn-ghost" data-rm-stavba="'+s.id+'">Ukončit</button></div>';
+  }).join("") || '<div class="hint">Žádné aktivní stavby.</div>';
+  var peopleHtml = state.people.map(function(p){
+    return '<div class="row-item" style="padding:9px 11px;"><div class="row-main row-title" style="font-size:13.5px;">'+esc(p)+'</div>'+
+      '<button class="btn-ghost" data-rm-person="'+esc(p)+'">Odebrat</button></div>';
+  }).join("");
+  openModal(
+    '<h3 class="modal-title">Nastavení</h3>'+
+    '<div class="field"><label>Upozornit na půjčené nářadí po (dnech)</label><input type="number" id="setAlert" value="'+state.settings.alertDays+'"></div>'+
+    '<div class="modal-actions" style="margin-bottom:18px;"><button class="btn btn-outline btn-block" id="setSave">Uložit</button></div>'+
+    '<div class="field"><label>Stavby / zakázky</label><div class="list">'+stavbyHtml+'</div>'+
+      '<div class="newperson-row" style="margin-top:8px;"><input id="newStavba" placeholder="Nová stavba…"><button class="btn btn-outline btn-sm" id="addStavbaBtn">Přidat</button></div></div>'+
+    '<div class="field"><label>Lidé</label><div class="list">'+peopleHtml+'</div>'+
+      '<div class="newperson-row" style="margin-top:8px;"><input id="newPersonSet" placeholder="Nové jméno…"><button class="btn btn-outline btn-sm" id="addPersonBtn">Přidat</button></div></div>'+
+    '<div class="field" style="margin-top:18px;"><label>Změnit přístupový kód pro všechny (4 číslice)</label><input id="setPin" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="nech prázdné = beze změny"></div>'+
+    '<div class="hint">Po změně se všem ostatním appka zamkne a musí zadat nový kód.</div>'+
+    '<div class="field"><label>Změnit kód správce (6–8 číslic)</label><input id="setAdmin" type="password" inputmode="numeric" maxlength="8" autocomplete="off" placeholder="nech prázdné = beze změny"></div>'+
+    '<div class="modal-actions"><button class="btn btn-primary btn-block" id="setCodes">Změnit kódy</button></div>'+
+    '<button class="btn btn-outline btn-block" id="admLogout" style="margin-top:18px;">Ukončit režim správce na tomto zařízení</button>'
+  );
+  document.getElementById("setSave").addEventListener("click", function(){
+    var d = parseInt(document.getElementById("setAlert").value,10) || 14;
+    withTimeout(F.setDoc(dref("config/settings"), { alertDays:d }, { merge:true }), 20000).then(function(){ closeModal(); toast("Uloženo."); }).catch(adminFail);
+  });
+  document.getElementById("setCodes").addEventListener("click", function(){
+    var pin = document.getElementById("setPin").value.trim();
+    var adm = document.getElementById("setAdmin").value.trim();
+    if(!pin && !adm){ alert("Vyplň nový kód, který chceš změnit."); return; }
+    if(pin && !/^\d{4}$/.test(pin)){ alert("Přístupový kód musí mít přesně 4 číslice."); return; }
+    if(adm && !/^\d{6,8}$/.test(adm)){ alert("Kód správce musí mít 6 až 8 číslic."); return; }
+    if(pin && !confirm("Opravdu změnit přístupový kód? Všem ostatním se appka zamkne, dokud nezadají nový kód "+pin+".")) return;
+    var b = F.writeBatch(fb.db), upd = {};
+    if(pin){ upd.pin = pin; b.set(dref("members/"+fb.uid), { pin:pin, at:F.serverTimestamp() }); }
+    if(adm){ upd.adminPin = adm; b.set(dref("admins/"+fb.uid), { adminPin:adm, at:F.serverTimestamp() }); }
+    b.update(dref("secret/app"), upd);
+    withTimeout(b.commit(), 20000).then(function(){ closeModal(); toast("Kódy změněny."); }).catch(adminFail);
+  });
+  document.getElementById("admLogout").addEventListener("click", function(){ device.admin=false; saveDevice(); closeModal(); render(); toast("Režim správce ukončen."); });
+  document.getElementById("addStavbaBtn").addEventListener("click", function(){
+    var v = document.getElementById("newStavba").value.trim();
+    if(!v) return;
+    var ex = state.stavby.find(function(s){ return s.name.toLowerCase()===v.toLowerCase(); });
+    var p = ex ? F.updateDoc(dref("stavby/"+ex.id), { active:true }) : F.setDoc(F.doc(cref("stavby")), { name:v, active:true });
+    withTimeout(p, 20000).then(function(){ closeModal(); openSettingsModal(); }).catch(adminFail);
+  });
+  document.getElementById("addPersonBtn").addEventListener("click", function(){
+    var v = document.getElementById("newPersonSet").value.trim();
+    if(!v) return;
+    withTimeout(F.setDoc(dref("people/"+slug(v)), { name:v }), 20000).then(function(){ closeModal(); openSettingsModal(); }).catch(adminFail);
+  });
+  document.querySelectorAll("[data-rm-stavba]").forEach(function(b){
+    b.addEventListener("click", function(){
+      var id = b.getAttribute("data-rm-stavba");
+      withTimeout(F.updateDoc(dref("stavby/"+id), { active:false }), 20000).then(function(){ closeModal(); openSettingsModal(); }).catch(adminFail);
+    });
+  });
+  document.querySelectorAll("[data-rm-person]").forEach(function(b){
+    b.addEventListener("click", function(){
+      var name = b.getAttribute("data-rm-person");
+      withTimeout(F.deleteDoc(dref("people/"+slug(name))), 20000).then(function(){ closeModal(); openSettingsModal(); }).catch(adminFail);
+    });
+  });
+}
+
+/* ---------------- správce ---------------- */
+function isAdmin(){ return !!device.admin; }
+function requireAdmin(cb){
+  if(isAdmin()){ cb(); return; }
+  openModal(
+    '<h3 class="modal-title">Jen pro správce</h3>'+
+    '<div class="hint">Nastavení, přidávání, úpravy a mazání položek může dělat jen správce appky.</div>'+
+    '<div class="field"><label>Kód správce</label><input id="admCode" type="password" inputmode="numeric" autocomplete="off"></div>'+
+    '<div class="gate-error" id="admErr" style="margin:-4px 0 8px;"></div>'+
+    '<div class="modal-actions"><button class="btn btn-outline" onclick="closeModal()">Zrušit</button><button class="btn btn-primary" id="admOk">Odemknout</button></div>'
+  );
+  var go = function(){
+    var code = document.getElementById("admCode").value.trim();
+    var errEl = document.getElementById("admErr");
+    if(!code) return;
+    errEl.textContent = "Ověřuji…";
+    tryAdmin(code).then(function(){
+      device.admin = true; saveDevice(); closeModal(); render(); cb();
+    }).catch(function(e){ errEl.textContent = isDenied(e) ? "Nesprávný kód správce." : errText(e); });
+  };
+  document.getElementById("admOk").addEventListener("click", go);
+  document.getElementById("admCode").addEventListener("keydown", function(e){ if(e.key==="Enter") go(); });
+  setTimeout(function(){ var el=document.getElementById("admCode"); if(el) el.focus(); }, 50);
+}
+
+/* ---------------- toast ---------------- */
+var toastTimer = null;
+function toast(msg){
+  var el = document.getElementById("toast");
+  el.textContent = msg; el.hidden = false;
+  clearTimeout(toastTimer); toastTimer = setTimeout(function(){ el.hidden = true; }, 3200);
+}
+
+/* ---------------- QR scanner ---------------- */
+var scan = { stream:null, raf:null, detector:null, canvas:null, busy:false, jsqrLoading:null };
+function scMsg(text, isErr){ var m=document.getElementById("scMsg"); m.textContent=text; m.classList.toggle("err", !!isErr); }
+function loadJsQR(){
+  if(window.jsQR) return Promise.resolve(true);
+  if(scan.jsqrLoading) return scan.jsqrLoading;
+  scan.jsqrLoading = new Promise(function(res){
+    var s = document.createElement("script");
+    s.src = "https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js";
+    s.onload = function(){ res(!!window.jsQR); };
+    s.onerror = function(){ scan.jsqrLoading = null; res(false); };
+    document.head.appendChild(s);
+  });
+  return scan.jsqrLoading;
+}
+async function openScanner(){
+  closeModal();
+  document.getElementById("scanner").hidden = false;
+  document.getElementById("scManual").value = "";
+  scMsg("Spouštím kameru…");
+  if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+    scMsg("Tady kamera nejde spustit. Zadej číslo z QR kódu ručně dole.", true); return;
+  }
+  try{
+    if("BarcodeDetector" in window){
+      try{
+        var formats = await window.BarcodeDetector.getSupportedFormats();
+        if(formats.indexOf("qr_code")>-1) scan.detector = new window.BarcodeDetector({formats:["qr_code"]});
+      }catch(e){}
+    }
+    if(!scan.detector){
+      var ok = await loadJsQR();
+      if(!ok){ scMsg("Čtečku se nepodařilo načíst (chybí internet?). Zadej číslo z QR kódu ručně dole.", true); return; }
+    }
+    scan.stream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode:{ideal:"environment"}, width:{ideal:1280}, height:{ideal:720} }, audio:false });
+    if(document.getElementById("scanner").hidden){ stopCamera(); return; }
+    var v = document.getElementById("scVideo");
+    v.srcObject = scan.stream;
+    await v.play();
+    scMsg("Namiř kameru na QR kód na nářadí.");
+    scan.busy = false;
+    scanLoop();
+  }catch(e){
+    var denied = e && (e.name==="NotAllowedError" || e.name==="SecurityError");
+    scMsg(denied ? "Appka nemá povolený přístup ke kameře. Povol kameru v prohlížeči, nebo zadej číslo ručně dole."
+                 : "Kameru se nepodařilo spustit. Zadej číslo z QR kódu ručně dole.", true);
+  }
+}
+function scanLoop(){
+  scan.raf = requestAnimationFrame(async function(){
+    var v = document.getElementById("scVideo");
+    if(!scan.stream) return;
+    if(!scan.busy && v.readyState >= 2 && v.videoWidth){
+      scan.busy = true;
+      try{
+        var text = null;
+        if(scan.detector){
+          var codes = await scan.detector.detect(v);
+          if(codes && codes.length) text = codes[0].rawValue;
+        } else if(window.jsQR){
+          var c = scan.canvas || (scan.canvas = document.createElement("canvas"));
+          var w = Math.min(640, v.videoWidth), h = Math.round(v.videoHeight * w / v.videoWidth);
+          c.width = w; c.height = h;
+          var ctx = c.getContext("2d", {willReadFrequently:true});
+          ctx.drawImage(v, 0, 0, w, h);
+          var img = ctx.getImageData(0, 0, w, h);
+          var r = window.jsQR(img.data, w, h, {inversionAttempts:"dontInvert"});
+          if(r && r.data) text = r.data;
+        }
+        if(text){ handleCode(text); return; }
+      }catch(e){}
+      scan.busy = false;
+    }
+    scanLoop();
+  });
+}
+function stopCamera(){
+  if(scan.raf) cancelAnimationFrame(scan.raf);
+  scan.raf = null;
+  if(scan.stream){ scan.stream.getTracks().forEach(function(t){ t.stop(); }); }
+  scan.stream = null;
+  var v = document.getElementById("scVideo"); if(v) v.srcObject = null;
+}
+function closeScanner(){ stopCamera(); document.getElementById("scanner").hidden = true; }
+function handleCode(text){
+  var m = String(text).match(/\d+/);
+  var code = m ? m[0] : String(text).trim();
+  if(navigator.vibrate) try{ navigator.vibrate(60); }catch(e){}
+  closeScanner();
+  var t = state.tools.find(function(x){ return String(x.invNo) === code; });
+  activeView = "naradi"; render();
+  if(t){ openToolDetail(t.id); return; }
+  openModal(
+    '<h3 class="modal-title">Tenhle kód appka nezná</h3>'+
+    '<div class="hint">Naskenovaný kód: '+esc(code)+'</div>'+
+    '<p style="font-size:14px; line-height:1.5; margin:0 0 14px;">Žádné nářadí v appce k tomuto QR kódu nepatří. Pokud je to nové nářadí, správce ho může rovnou přidat – kód se k němu uloží.</p>'+
+    '<div class="modal-actions"><button class="btn btn-outline" id="ukAgain">Skenovat znovu</button><button class="btn btn-primary" id="ukAdd">Přidat nářadí</button></div>'
+  );
+  document.getElementById("ukAgain").addEventListener("click", openScanner);
+  document.getElementById("ukAdd").addEventListener("click", function(){ requireAdmin(function(){ openEditToolModal(null, code); }); });
+}
+document.getElementById("scClose").addEventListener("click", closeScanner);
+document.getElementById("scManualBtn").addEventListener("click", function(){
+  var v = document.getElementById("scManual").value.trim(); if(v) handleCode(v);
+});
+document.getElementById("scManual").addEventListener("keydown", function(e){ if(e.key==="Enter"){ var v=e.target.value.trim(); if(v) handleCode(v); } });
+document.addEventListener("visibilitychange", function(){ if(document.hidden && scan.stream) closeScanner(); });
+
+render();
+initFirebase();
+})();
+</script>
+
+</body>
+</html>
